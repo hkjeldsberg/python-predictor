@@ -43,7 +43,6 @@ The outputs include:
 - Printed classification reports for each model.
 - ROC curves for each model.
 - Comparison plots for accuracy, recall, and precision of the models:
--
 
-![Comparison for the ML models](results.png)
+![Comparison for the ML models](results/results.png)
 
