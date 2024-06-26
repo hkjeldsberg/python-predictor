@@ -45,5 +45,5 @@ The outputs include:
 - Comparison plots for accuracy, recall, and precision of the models:
 -
 
-![Comparison for the ML models](floods/results.png)
+![Comparison for the ML models](results.png)
 
