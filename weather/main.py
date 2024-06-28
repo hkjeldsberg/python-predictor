@@ -20,6 +20,7 @@ class Forecasting:
         self.optimizer = self.config["optimizer"]
         self.metrics = self.config["metrics"]
         self.units = self.config["units"]
+        self.units_dense = self.config["units_dense"]
         self.activation = self.config["activation"]
         self.epochs = self.config["epochs"]
         self.conv_width = config['conv_width']
@@ -160,14 +161,23 @@ class Forecasting:
     def train_dense(self):
         window = self.wide_window
         model = tf.keras.Sequential([
-            tf.keras.layers.Dense(units=self.units, activation=self.activation),
-            tf.keras.layers.Dense(units=self.units, activation=self.activation),
+            tf.keras.layers.Dense(units=self.units_dense, activation=self.activation),
+            tf.keras.layers.Dense(units=self.units_dense, activation=self.activation),
             tf.keras.layers.Dense(units=1)
         ])
         self.train(model, window, "Dense")
 
+    def train_rnn(self):
+        window = self.wide_window
+        model = tf.keras.Sequential([
+            tf.keras.layers.LSTM(units=self.units, return_sequences=True),
+            tf.keras.layers.Dense(units=1)
+        ])
+        self.print_model_info(model, window)
+        self.train(model, window, "LSTM")
+
     def train_multi_step_dense(self):
-        window = self.conv_window
+        window = self.wide_conv_window
         model = tf.keras.Sequential([
             # (Time, Features) -> (Time*Features)
             tf.keras.layers.Flatten(),
@@ -215,12 +225,11 @@ class Forecasting:
 
         return history
 
-    def evaluate_model(self, model, window, name):
+    def evaluate_model(self, model, window, name, plot=False):
         self.val_performance[name] = model.evaluate(window.val, return_dict=True)
         self.performance[name] = model.evaluate(window.test, verbose=0, return_dict=True)
-
-        window.plot(model)
-        window.plot_weights(model)
+        if plot:
+            window.plot(model)
 
     def train(self, model, window, name):
         history = self.compile_and_fit(model, window)
@@ -232,6 +241,21 @@ class Forecasting:
         print('Labels shape:', window.example[1].shape)
         print('Output shape:', model(window.example[0]).shape)
 
+    def plot_error(self):
+        x = np.arange(len(self.performance))
+        width = 0.3
+        metric_name = 'mean_absolute_error'
+        val_mae = [v[metric_name] for v in self.val_performance.values()]
+        test_mae = [v[metric_name] for v in self.performance.values()]
+
+        plt.ylabel('mean_absolute_error [T (degC), normalized]')
+        plt.bar(x - 0.17, val_mae, width, label='Validation')
+        plt.bar(x + 0.17, test_mae, width, label='Test')
+        plt.xticks(ticks=x, labels=self.performance.keys(),
+                   rotation=45)
+        plt.legend()
+        plt.show()
+
 
 def main(config):
     model = Forecasting(config)
@@ -241,7 +265,13 @@ def main(config):
     model.create_wide_window()
     model.create_conv_window()
     model.create_wide_conv_window()
+    model.train_baseline()
+    model.train_linear()
+    model.train_dense()
+    model.train_multi_step_dense()
     model.train_conv()
+    model.train_rnn()
+    model.plot_error()
 
 
 if __name__ == '__main__':
@@ -252,8 +282,9 @@ if __name__ == '__main__':
         "metrics": [tf.keras.metrics.MeanAbsoluteError()],
         "activation": "relu",
         "units": 32,
+        "units_dense": 32,
         "epochs": 20,
-        "conv_width": 3,
-        "label_width": 24
+        "conv_width": 10,
+        "label_width": 48
     }
     main(config)
