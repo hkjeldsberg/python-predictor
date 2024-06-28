@@ -10,6 +10,8 @@ from os import path
 
 from baseline import Baseline
 from residual_wrapper import ResidualWrapper
+from multistep_baseline import MultiStepLastBaseline
+from repeat_baseline import RepeatBaseline
 from window_generator import WindowGenerator
 
 sns.set_theme()
@@ -32,6 +34,7 @@ class Forecasting:
         self.conv_width = self.config['conv_width']
         self.label_width = self.config['label_width']
         self.shift = self.config['shift']
+        self.input_width = self.config['input_width']
 
     def read_data(self):
         df = pd.read_csv(path.join(self.data_dir, "weather_data.csv"))
@@ -157,9 +160,37 @@ class Forecasting:
 
     def create_multi_window(self):
         self.multi_window = WindowGenerator(
-            input_df=self.train_df, test_df=self.test_df, val_df=self.val_df,
-            input_width=self.conv_width, label_width=self.label_width, shift=1,
+            train_df=self.train_df, test_df=self.test_df, val_df=self.val_df,
+            input_width=self.input_width, label_width=self.shift, shift=self.shift,
         )
+        print(self.multi_window)
+
+    def train_multibaseline(self):
+        window = self.multi_window
+        model = MultiStepLastBaseline(
+            steps=self.shift
+        )
+
+        self.train(model, window, "LastBaseline")
+
+    def train_repeatbaseline(self):
+        window = self.multi_window
+        model = RepeatBaseline()
+
+        self.train(model, window, "RepeatBaseline")
+
+    def train_multi_linear(self):
+        window = self.multi_window
+        model = tf.keras.Sequential([
+            tf.keras.layers.Lambda(lambda x: x[:, -1:, :]),
+            tf.keras.layers.Dense(
+                units=self.shift * self.num_features,
+                kernel_initializer=tf.keras.initializers.zeros(),
+            ),
+            tf.keras.layers.Reshape([self.shift, self.num_features])
+        ])
+
+        self.train(model, window, "MultiLinear")
 
     def train_baseline(self):
         window = self.wide_window
@@ -265,7 +296,7 @@ class Forecasting:
 
     def train(self, model, window, name):
         history = self.compile_and_fit(model, window)
-        self.evaluate_model(model, window, name)
+        self.evaluate_model(model, window, name, True)
         self.save_error()
 
     def print_model_info(self, model, window):
@@ -301,11 +332,18 @@ def main(config):
     model = Forecasting(config)
     model.read_data()
     model.preprocess_data()
-    model.create_single_step_window()
-    model.create_wide_window()
-    model.create_conv_window()
-    model.create_wide_conv_window()
 
+    # CREATE WINDOWS
+    # model.create_single_step_window()
+    # model.create_wide_window()
+    # model.create_conv_window()
+    # model.create_wide_conv_window()
+    model.create_multi_window()
+
+    # TRAIN MODELS
+    model.train_multi_linear()
+    # model.train_multibaseline()
+    # model.train_repeatbaseline()
     # model.train_baseline()
     # model.train_linear()
     # model.train_dense()
@@ -313,7 +351,7 @@ def main(config):
     # model.train_conv()
     # model.train_rnn()
     # model.train_residual_lstm()
-    model.plot_error()
+    # model.plot_error()
 
 
 if __name__ == '__main__':
