@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import tensorflow as tf
 import pandas as pd
@@ -7,14 +9,18 @@ from matplotlib import pyplot as plt
 from os import path
 
 from baseline import Baseline
+from residual_wrapper import ResidualWrapper
 from window_generator import WindowGenerator
 
 sns.set_theme()
+sns.color_palette("husl", 8)
 
 
 class Forecasting:
     def __init__(self, config):
         self.config = config
+        self.num_features = self.config['num_features']
+        self.data_dir = self.config['data_dir']
         self.results_dir = self.config['results_dir']
         self.loss = self.config["loss"]
         self.optimizer = self.config["optimizer"]
@@ -23,18 +29,21 @@ class Forecasting:
         self.units_dense = self.config["units_dense"]
         self.activation = self.config["activation"]
         self.epochs = self.config["epochs"]
-        self.conv_width = config['conv_width']
+        self.conv_width = self.config['conv_width']
         self.label_width = self.config['label_width']
-
-        # Define performance dicts
-        self.val_performance = {}
-        self.performance = {}
+        self.shift = self.config['shift']
 
     def read_data(self):
-        df = pd.read_csv(path.join(self.results_dir, "weather_data.csv"))
+        df = pd.read_csv(path.join(self.data_dir, "weather_data.csv"))
         df = df[5::6]
 
         self.df = df
+
+        # Define performance dicts
+        with open(path.join(self.results_dir, "performance_all.json")) as f:
+            self.performance = json.loads(f.read())
+        with open(path.join(self.results_dir, "val_performance_all.json")) as f:
+            self.val_performance = json.loads(f.read())
 
     def create_features(self):
         # Create wind vector
@@ -146,9 +155,17 @@ class Forecasting:
         )
         print(self.wide_conv_window)
 
+    def create_multi_window(self):
+        self.multi_window = WindowGenerator(
+            input_df=self.train_df, test_df=self.test_df, val_df=self.val_df,
+            input_width=self.conv_width, label_width=self.label_width, shift=1,
+        )
+
     def train_baseline(self):
         window = self.wide_window
-        model = Baseline(label_index=window.column_indices['T (degC)'])
+        model = Baseline(
+            label_index=window.column_indices['T (degC)']
+        )
         self.train(model, window, "Baaseline")
 
     def train_linear(self):
@@ -159,11 +176,11 @@ class Forecasting:
         self.train(model, window, "Linear")
 
     def train_dense(self):
-        window = self.wide_window
+        window = self.single_step_window
         model = tf.keras.Sequential([
             tf.keras.layers.Dense(units=self.units_dense, activation=self.activation),
             tf.keras.layers.Dense(units=self.units_dense, activation=self.activation),
-            tf.keras.layers.Dense(units=1)
+            tf.keras.layers.Dense(units=self.num_features)
         ])
         self.train(model, window, "Dense")
 
@@ -171,7 +188,7 @@ class Forecasting:
         window = self.wide_window
         model = tf.keras.Sequential([
             tf.keras.layers.LSTM(units=self.units, return_sequences=True),
-            tf.keras.layers.Dense(units=1)
+            tf.keras.layers.Dense(units=self.num_features)
         ])
         self.print_model_info(model, window)
         self.train(model, window, "LSTM")
@@ -205,6 +222,21 @@ class Forecasting:
         self.print_model_info(model, window)
         self.train(model, window, "Conv")
 
+    def train_residual_lstm(self):
+        window = self.wide_window
+        model = ResidualWrapper(
+            tf.keras.Sequential([
+                tf.keras.layers.LSTM(units=self.units, return_sequences=True),
+                tf.keras.layers.Dense(
+                    units=self.num_features,
+                    kernel_initializer=tf.initializers.zeros()
+                )
+            ])
+        )
+
+        self.print_model_info(model, window)
+        self.train(model, window, "Residual LSTM")
+
     def compile_and_fit(self, model, window, patience=2):
         early_stopping = tf.keras.callbacks.EarlyStopping(
             monitor='val_loss',
@@ -234,6 +266,7 @@ class Forecasting:
     def train(self, model, window, name):
         history = self.compile_and_fit(model, window)
         self.evaluate_model(model, window, name)
+        self.save_error()
 
     def print_model_info(self, model, window):
         print("Wide window")
@@ -248,13 +281,20 @@ class Forecasting:
         val_mae = [v[metric_name] for v in self.val_performance.values()]
         test_mae = [v[metric_name] for v in self.performance.values()]
 
-        plt.ylabel('mean_absolute_error [T (degC), normalized]')
-        plt.bar(x - 0.17, val_mae, width, label='Validation')
-        plt.bar(x + 0.17, test_mae, width, label='Test')
+        # plt.ylabel('Mean absolute error – Normalized Temperature (Celcius)')
+        plt.ylabel("Mean absolute error – Averaged over all features")
+        plt.bar(x - 0.17, val_mae, width, label='Validation', color='firebrick')
+        plt.bar(x + 0.17, test_mae, width, label='Test', color="darkgreen")
         plt.xticks(ticks=x, labels=self.performance.keys(),
                    rotation=45)
         plt.legend()
         plt.show()
+
+    def save_error(self):
+        with open(path.join(self.results_dir, "performance_all.json"), "w") as f:
+            f.write(json.dumps(self.performance))
+        with open(path.join(self.results_dir, "val_performance_all.json"), "w") as f:
+            f.write(json.dumps(self.val_performance))
 
 
 def main(config):
@@ -265,26 +305,32 @@ def main(config):
     model.create_wide_window()
     model.create_conv_window()
     model.create_wide_conv_window()
-    model.train_baseline()
-    model.train_linear()
-    model.train_dense()
-    model.train_multi_step_dense()
-    model.train_conv()
-    model.train_rnn()
+
+    # model.train_baseline()
+    # model.train_linear()
+    # model.train_dense()
+    # model.train_multi_step_dense()
+    # model.train_conv()
+    # model.train_rnn()
+    # model.train_residual_lstm()
     model.plot_error()
 
 
 if __name__ == '__main__':
     config = {
-        "results_dir": "data",
+        "data_dir": "data",
+        "results_dir": "results",
         "loss": tf.keras.losses.MeanSquaredError(),
         "optimizer": tf.keras.optimizers.Adam(),
         "metrics": [tf.keras.metrics.MeanAbsoluteError()],
         "activation": "relu",
         "units": 32,
-        "units_dense": 32,
+        "units_dense": 64,
         "epochs": 20,
         "conv_width": 10,
-        "label_width": 48
+        "label_width": 48,
+        "num_features": 17,
+        "shift": 24,
+        "input_width": 24
     }
     main(config)
