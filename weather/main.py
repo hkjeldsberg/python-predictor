@@ -3,12 +3,8 @@ import tensorflow as tf
 import pandas as pd
 import seaborn as sns
 from IPython import embed
-from keras.src.activations import linear
 from matplotlib import pyplot as plt
 from os import path
-
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 
 from baseline import Baseline
 from window_generator import WindowGenerator
@@ -138,10 +134,11 @@ class Forecasting:
     def train_baseline(self):
         window = self.wide_window
         for inputs, labels in window.train.take(1):
-            print(f'Inputs shape (batch, time, features): {inputs.shape}')
-            print(f'Labels shape (batch, time, features): {labels.shape}')
+            pass
 
         model = Baseline(label_index=window.column_indices['T (degC)'])
+        print('Input shape:', window.example[0].shape)
+        print('Output shape:', model(window.example[0]).shape)
 
         history = self.compile_and_fit(model, window)
 
@@ -155,16 +152,20 @@ class Forecasting:
         for inputs, labels in window.train.take(1):
             print(f'Inputs shape (batch, time, features): {inputs.shape}')
             print(f'Labels shape (batch, time, features): {labels.shape}')
+
         model = tf.keras.Sequential([
             tf.keras.layers.Dense(units=self.units),
         ])
+
         print('Input shape:', window.example[0].shape)
-        print('Output shape:', linear(window.example[0]).shape)
+        print('Output shape:', model(window.example[0]).shape)
 
         history = self.compile_and_fit(model, self.single_step_window)
 
         self.val_performance['Linear'] = model.evaluate(window.val, return_dict=True)
         self.performance['Linear'] = model.evaluate(window.test, verbose=0, return_dict=True)
+        print(self.val_performance['Linear'])
+        print(self.performance['Linear'])
 
         window.plot(model, inputs=inputs, labels=labels)
 
@@ -195,7 +196,7 @@ def main(config):
     model.preprocess_data()
     model.create_single_step_window()
     model.create_wide_window()
-    model.train_baseline()
+    model.train_linear()
 
 
 if __name__ == '__main__':

@@ -2,7 +2,6 @@ import tensorflow as tf
 
 
 class Baseline(tf.keras.Model):
-
     def __init__(self, label_index=None):
         super().__init__()
         self.label_index = label_index
@@ -10,5 +9,5 @@ class Baseline(tf.keras.Model):
     def call(self, inputs):
         if self.label_index is None:
             return inputs
-        results = inputs[:, :, :self.label_index]
+        results = inputs[:, :, self.label_index]
         return results[:, :, tf.newaxis]

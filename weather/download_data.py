@@ -19,20 +19,12 @@ def download_and_extract_zip(url):
 
 def main():
     base_url = "https://www.bgc-jena.mpg.de/wetter/"
-    periods = [
-                  "mpi_saale",
-                  "mpi_saale_2023b", "mpi_saale_2023a",
-                  "mpi_saale_2022b", "mpi_saale_2022a",
-                  "mpi_saale_2021b", "mpi_saale_2021a",
-                  "mpi_saale_2020b", "mpi_saale_2020a",
-                  "mpi_saale_2019b", "mpi_saale_2019a",
-                  "mpi_saale_2018b", "mpi_saale_2018a",
-                  "mpi_saale_2017b", "mpi_saale_2017a",
-                  "mpi_saale_2016b", "mpi_saale_2016a",
-                  "mpi_saale_2015b", "mpi_saale_2015a",
-                  "mpi_saale_2014b", "mpi_saale_2014a",
-                  "mpi_saale_2013b", "mpi_saale_2013a",
-              ][::-1]  # Reversed to append chronologically
+    start = 2009
+    stop = 2017
+    periods = []
+    for year in range(start, stop):
+        for n in ["a", "b"]:
+            periods.append(f"mpi_saale_{year}{n}")
 
     all_data = pd.DataFrame()
 

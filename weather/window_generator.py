@@ -19,8 +19,8 @@ class WindowGenerator:
 
         # Window params
         self.shift = shift
-        self.label_width = label_width
         self.input_width = input_width
+        self.label_width = label_width
         self.total_window_size = self.input_width + shift
 
         self.input_slice = slice(0, self.input_width)
@@ -44,12 +44,10 @@ class WindowGenerator:
 
     @property
     def example(self):
-        """Get and cache an example batch of `inputs, labels` for plotting."""
         result = getattr(self, '_example', None)
         if result is None:
             # No example batch was found, so get one from the `.train` dataset
             result = next(iter(self.train))
-            # And cache it for next time
             self._example = result
         return result
 
@@ -60,7 +58,7 @@ class WindowGenerator:
             f'Label indices: {self.label_indices}',
             f'Label column name(s): {self.label_columns}'])
 
-    def split_inputs_and_labels(self, features):
+    def split_window(self, features):
         inputs = features[:, self.input_slice, :]
         labels = features[:, self.labels_slice, :]
         if self.label_columns is not None:
@@ -82,7 +80,7 @@ class WindowGenerator:
             plt.subplot(n, 1, i + 1)
 
             # Plot inputs
-            plt.plot(self.input_indices, inputs[i, :, plot_col_index], marker=".", label="Input")
+            plt.plot(self.input_indices, inputs[i, :, plot_col_index], marker=".", label="Input", zorder=-10)
 
             # Plot labels
             if self.label_columns:
@@ -90,15 +88,16 @@ class WindowGenerator:
             else:
                 label_col_index = plot_col_index
             plt.scatter(self.label_indices, labels[i, :, label_col_index],
-                        edgecolors="black", label="Labels", color="red", s=64)
+                        edgecolors="black", label="Labels", color="#2ca02c", s=64)
 
             if model is not None:
                 predictions = model(inputs)
                 plt.scatter(self.label_indices, predictions[i, :, label_col_index],
-                            marker="X", label="Predictions", edgecolor="black", color="green", s=64)
+                            marker="X", label="Predictions", edgecolor="black", color="#ff7f0e", s=64)
 
             if i == 0:
                 plt.legend()
+
             plt.xlabel("Time [h]")
             plt.ylabel(f"{plot_col} [normalized]")
 
@@ -115,6 +114,6 @@ class WindowGenerator:
             batch_size=32
         )
 
-        ds = ds.map(self.split_inputs_and_labels)
+        ds = ds.map(self.split_window)
 
         return ds
