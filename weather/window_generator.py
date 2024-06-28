@@ -73,6 +73,7 @@ class WindowGenerator:
         return inputs, labels
 
     def plot(self, model=None, plot_col='T (degC)', inputs=None, labels=None):
+        inputs,labels=self.example
         plot_col_index = self.column_indices[plot_col]
         n = len(inputs.shape)
 
@@ -117,3 +118,13 @@ class WindowGenerator:
         ds = ds.map(self.split_window)
 
         return ds
+
+    def plot_weights(self, model):
+        plt.bar(
+            x=range(len(self.train_df.columns)),
+            height=model.layers[0].kernel[:, 0].numpy()
+        )
+        axis = plt.gca()
+        axis.set_xticks(range(len(self.train_df.columns)))
+        _ = axis.set_xticklabels(self.train_df.columns, rotation=90)
+        plt.show()

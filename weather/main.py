@@ -22,6 +22,8 @@ class Forecasting:
         self.units = self.config["units"]
         self.activation = self.config["activation"]
         self.epochs = self.config["epochs"]
+        self.conv_width = config['conv_width']
+        self.label_width = self.config['label_width']
 
         # Define performance dicts
         self.val_performance = {}
@@ -125,49 +127,73 @@ class Forecasting:
         )
         print(self.single_step_window)
 
-    def plot_single_step(self):
-        for inputs, labels in self.single_step_window.train.take(1):
-            print(f'Inputs shape (batch, time, features): {inputs.shape}')
-            print(f'Labels shape (batch, time, features): {labels.shape}')
-            self.single_step_window.plot(inputs=inputs, labels=labels)
+    def create_conv_window(self):
+        self.conv_window = WindowGenerator(
+            train_df=self.train_df, test_df=self.test_df, val_df=self.val_df,
+            input_width=self.conv_width, label_width=self.label_width, shift=1,
+            label_columns=['T (degC)']
+        )
+        print(self.conv_window)
+
+    def create_wide_conv_window(self):
+        input_width = self.label_width + (self.conv_width - 1)
+
+        self.wide_conv_window = WindowGenerator(
+            train_df=self.train_df, test_df=self.test_df, val_df=self.val_df,
+            input_width=input_width, label_width=self.label_width, shift=1,
+            label_columns=['T (degC)']
+        )
+        print(self.wide_conv_window)
 
     def train_baseline(self):
         window = self.wide_window
-        for inputs, labels in window.train.take(1):
-            pass
-
         model = Baseline(label_index=window.column_indices['T (degC)'])
-        print('Input shape:', window.example[0].shape)
-        print('Output shape:', model(window.example[0]).shape)
-
-        history = self.compile_and_fit(model, window)
-
-        self.val_performance['Baseline'] = model.evaluate(window.val, return_dict=True)
-        self.performance['Baseline'] = model.evaluate(window.test, verbose=0, return_dict=True)
-
-        window.plot(model, inputs=inputs, labels=labels)
+        self.train(model, window, "Baaseline")
 
     def train_linear(self):
         window = self.wide_window
-        for inputs, labels in window.train.take(1):
-            print(f'Inputs shape (batch, time, features): {inputs.shape}')
-            print(f'Labels shape (batch, time, features): {labels.shape}')
-
         model = tf.keras.Sequential([
-            tf.keras.layers.Dense(units=self.units),
+            tf.keras.layers.Dense(units=1),
+        ])
+        self.train(model, window, "Linear")
+
+    def train_dense(self):
+        window = self.wide_window
+        model = tf.keras.Sequential([
+            tf.keras.layers.Dense(units=self.units, activation=self.activation),
+            tf.keras.layers.Dense(units=self.units, activation=self.activation),
+            tf.keras.layers.Dense(units=1)
+        ])
+        self.train(model, window, "Dense")
+
+    def train_multi_step_dense(self):
+        window = self.conv_window
+        model = tf.keras.Sequential([
+            # (Time, Features) -> (Time*Features)
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(units=self.units, activation=self.activation),
+            tf.keras.layers.Dense(units=self.units, activation=self.activation),
+            tf.keras.layers.Dense(units=1),
+            # Reshape
+            tf.keras.layers.Reshape([1, -1])
         ])
 
-        print('Input shape:', window.example[0].shape)
-        print('Output shape:', model(window.example[0]).shape)
+        self.train(model, window, "Multi step dense")
 
-        history = self.compile_and_fit(model, self.single_step_window)
+    def train_conv(self):
+        window = self.wide_conv_window
 
-        self.val_performance['Linear'] = model.evaluate(window.val, return_dict=True)
-        self.performance['Linear'] = model.evaluate(window.test, verbose=0, return_dict=True)
-        print(self.val_performance['Linear'])
-        print(self.performance['Linear'])
-
-        window.plot(model, inputs=inputs, labels=labels)
+        model = tf.keras.Sequential([
+            tf.keras.layers.Conv1D(
+                filters=32,
+                kernel_size=(self.conv_width,),
+                activation=self.activation,
+            ),
+            tf.keras.layers.Dense(units=self.units, activation=self.activation),
+            tf.keras.layers.Dense(units=1),
+        ])
+        self.print_model_info(model, window)
+        self.train(model, window, "Conv")
 
     def compile_and_fit(self, model, window, patience=2):
         early_stopping = tf.keras.callbacks.EarlyStopping(
@@ -189,6 +215,23 @@ class Forecasting:
 
         return history
 
+    def evaluate_model(self, model, window, name):
+        self.val_performance[name] = model.evaluate(window.val, return_dict=True)
+        self.performance[name] = model.evaluate(window.test, verbose=0, return_dict=True)
+
+        window.plot(model)
+        window.plot_weights(model)
+
+    def train(self, model, window, name):
+        history = self.compile_and_fit(model, window)
+        self.evaluate_model(model, window, name)
+
+    def print_model_info(self, model, window):
+        print("Wide window")
+        print('Input shape:', window.example[0].shape)
+        print('Labels shape:', window.example[1].shape)
+        print('Output shape:', model(window.example[0]).shape)
+
 
 def main(config):
     model = Forecasting(config)
@@ -196,7 +239,9 @@ def main(config):
     model.preprocess_data()
     model.create_single_step_window()
     model.create_wide_window()
-    model.train_linear()
+    model.create_conv_window()
+    model.create_wide_conv_window()
+    model.train_conv()
 
 
 if __name__ == '__main__':
@@ -206,7 +251,9 @@ if __name__ == '__main__':
         "optimizer": tf.keras.optimizers.Adam(),
         "metrics": [tf.keras.metrics.MeanAbsoluteError()],
         "activation": "relu",
-        "units": 1,
-        "epochs": 20
+        "units": 32,
+        "epochs": 20,
+        "conv_width": 3,
+        "label_width": 24
     }
     main(config)
