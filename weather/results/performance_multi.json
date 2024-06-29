@@ -1,0 +1,30 @@
+{
+  "LastBaseline": {
+    "loss": 0.750781238079071,
+    "mean_absolute_error": 0.53360515832901
+  },
+  "RepeatBaseline": {
+    "loss": 0.30521753430366516,
+    "mean_absolute_error": 0.3334633708000183
+  },
+  "MultiLinear": {
+    "loss": 0.23244021832942963,
+    "mean_absolute_error": 0.2856091260910034
+  },
+  "MultiDense": {
+    "loss": 0.19077523052692413,
+    "mean_absolute_error": 0.26401200890541077
+  },
+  "MultiConv": {
+    "loss": 0.17654821276664734,
+    "mean_absolute_error": 0.2643400728702545
+  },
+  "MultiRNN": {
+    "loss": 0.1656440943479538,
+    "mean_absolute_error": 0.25365567207336426
+  },
+  "AR LSTM": {
+    "loss": 0.17906635999679565,
+    "mean_absolute_error": 0.2691197693347931
+  }
+}

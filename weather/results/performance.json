@@ -1,0 +1,30 @@
+{
+  "Baseline": {
+    "loss": 0.03495524078607559,
+    "mean_absolute_error": 0.12815633416175842
+  },
+  "Linear": {
+    "loss": 0.022945556789636612,
+    "mean_absolute_error": 0.10748713463544846
+  },
+  "Dense": {
+    "loss": 0.015719488263130188,
+    "mean_absolute_error": 0.09105520695447922
+  },
+  "Multi step dense": {
+    "loss": 0.3069360554218292,
+    "mean_absolute_error": 0.43999823927879333
+  },
+  "Conv": {
+    "loss": 0.013726890087127686,
+    "mean_absolute_error": 0.08307207375764847
+  },
+  "LSTM": {
+    "loss": 0.013246740214526653,
+    "mean_absolute_error": 0.08130337297916412
+  },
+  "Residual LSTM": {
+    "loss": 0.9608054757118225,
+    "mean_absolute_error": 0.7789241075515747
+  }
+}
