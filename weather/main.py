@@ -12,6 +12,7 @@ from baseline import Baseline
 from residual_wrapper import ResidualWrapper
 from multistep_baseline import MultiStepLastBaseline
 from repeat_baseline import RepeatBaseline
+from feedback import Feedback
 from window_generator import WindowGenerator
 
 sns.set_theme()
@@ -43,9 +44,9 @@ class Forecasting:
         self.df = df
 
         # Define performance dicts
-        with open(path.join(self.results_dir, "performance_all.json")) as f:
+        with open(path.join(self.results_dir, "performance_multi.json")) as f:
             self.performance = json.loads(f.read())
-        with open(path.join(self.results_dir, "val_performance_all.json")) as f:
+        with open(path.join(self.results_dir, "val_performance_multi.json")) as f:
             self.val_performance = json.loads(f.read())
 
     def create_features(self):
@@ -192,6 +193,57 @@ class Forecasting:
 
         self.train(model, window, "MultiLinear")
 
+    def train_multi_dense(self):
+        window = self.multi_window
+        model = tf.keras.Sequential([
+            tf.keras.layers.Lambda(lambda x: x[:, -1:, :]),
+            tf.keras.layers.Dense(units=512, activation=self.activation),
+            tf.keras.layers.Dense(
+                units=self.shift * self.num_features,
+                kernel_initializer=tf.keras.initializers.zeros(),
+            ),
+            tf.keras.layers.Reshape([self.shift, self.num_features])
+        ])
+
+        self.train(model, window, "MultiDense")
+
+    def train_multi_conv(self):
+        window = self.multi_window
+        model = tf.keras.Sequential([
+            tf.keras.layers.Lambda(lambda x: x[:, -self.conv_width:, :]),
+            tf.keras.layers.Conv1D(256, activation='relu', kernel_size=self.conv_width),
+            tf.keras.layers.Dense(
+                self.shift * self.num_features,
+                kernel_initializer=tf.initializers.zeros()
+            ),
+            tf.keras.layers.Reshape([self.shift, self.num_features])
+        ])
+        self.train(model, window, "MultiConv")
+
+    def train_multi_rnn(self):
+        window = self.multi_window
+        model = tf.keras.Sequential([
+            tf.keras.layers.LSTM(
+                units=self.units,
+                return_sequences=False,
+            ),
+            tf.keras.layers.Dense(
+                self.shift * self.num_features,
+                kernel_initializer=tf.keras.initializers.zeros()
+            ),
+            tf.keras.layers.Reshape([self.shift, self.num_features])
+        ])
+
+        self.train(model, window, "MultiRNN")
+
+    def train_autoregressive_rnn(self):
+        window = self.multi_window
+        model = Feedback(units=self.units, out_steps=self.shift, num_features=self.num_features)
+        prediction, state = model.warmup(window.example[0])
+        print("Prediction (shape):", prediction.shape)
+
+        self.train(model, window, "AR LSTM")
+
     def train_baseline(self):
         window = self.wide_window
         model = Baseline(
@@ -275,6 +327,7 @@ class Forecasting:
             mode="min"
         )
         model.compile(
+            run_eagerly=True,
             loss=self.loss,
             optimizer=self.optimizer,
             metrics=self.metrics
@@ -341,7 +394,11 @@ def main(config):
     model.create_multi_window()
 
     # TRAIN MODELS
-    model.train_multi_linear()
+    # model.train_autoregressive_rnn()
+    # model.train_multi_rnn()
+    # model.train_multi_conv()
+    # model.train_multi_linear()
+    # model.train_multi_dense()
     # model.train_multibaseline()
     # model.train_repeatbaseline()
     # model.train_baseline()
@@ -351,7 +408,7 @@ def main(config):
     # model.train_conv()
     # model.train_rnn()
     # model.train_residual_lstm()
-    # model.plot_error()
+    model.plot_error()
 
 
 if __name__ == '__main__':
