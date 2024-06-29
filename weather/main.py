@@ -1,3 +1,4 @@
+import argparse
 import json
 
 import numpy as np
@@ -381,37 +382,58 @@ class Forecasting:
             f.write(json.dumps(self.val_performance))
 
 
-def main(config):
+def main(config, window_type, model_name):
     model = Forecasting(config)
     model.read_data()
     model.preprocess_data()
 
-    # CREATE WINDOWS
-    # model.create_single_step_window()
-    # model.create_wide_window()
-    # model.create_conv_window()
-    # model.create_wide_conv_window()
-    model.create_multi_window()
+    if window_type == "single":
+        model.create_single_step_window()
+        model.create_wide_window()
+        model.create_conv_window()
+        model.create_wide_conv_window()
+    if window_type == "multi":
+        model.create_multi_window()
 
-    # TRAIN MODELS
-    # model.train_autoregressive_rnn()
-    # model.train_multi_rnn()
-    # model.train_multi_conv()
-    # model.train_multi_linear()
-    # model.train_multi_dense()
-    # model.train_multibaseline()
-    # model.train_repeatbaseline()
-    # model.train_baseline()
-    # model.train_linear()
-    # model.train_dense()
-    # model.train_multi_step_dense()
-    # model.train_conv()
-    # model.train_rnn()
-    # model.train_residual_lstm()
+    models_single = {
+        "baseline": model.train_baseline,
+        "linear": model.train_linear,
+        "dense": model.train_dense,
+        "multi_step": model.train_multi_step_dense,
+        "conv": model.train_conv,
+        "rnn": model.train_rnn,
+        "res_rnn": model.train_residual_lstm
+    }
+
+    models_multi = {
+        "baseline": model.train_multibaseline,
+        "repeat": model.train_repeatbaseline,
+        "dense": model.train_multi_dense,
+        "conv": model.train_multi_conv,
+        "rnn": model.train_multi_rnn,
+        "ar_rnn": model.train_autoregressive_rnn
+    }
+
+    if window_type == "single" and model_name in models_single:
+        models_single[model_name]()
+    elif window_type == "multi" and model_name in models_multi:
+        models_multi[model_name]()
+    else:
+        print(f"Model {model_name} not found for window type {window_type}.")
+
     model.plot_error()
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Train a forecasting model.")
+    parser.add_argument('--window_type', type=str, required=True,
+                        choices=['single', 'multi'],
+                        help='Type of window to use for training the model.')
+    parser.add_argument('--model_name', type=str, required=True,
+                        help='Name of the model to train.')
+
+    args = parser.parse_args()
+
     config = {
         "data_dir": "data",
         "results_dir": "results",
@@ -428,4 +450,5 @@ if __name__ == '__main__':
         "shift": 24,
         "input_width": 24
     }
-    main(config)
+
+    main(config, args.window_type, args.model_name)
