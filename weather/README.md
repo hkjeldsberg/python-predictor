@@ -43,7 +43,6 @@ The model supports training various architectures:
 
 Models prefixed with _multi_ uses all the features (17) as labels for prediction.
 
-
 ## Usage
 
 To use the model, execute the following python script with the respective command line arguments:
@@ -60,17 +59,25 @@ format and can be plotted for comparison.
 ## Example output
 
 ### Mean Absolute Error (MAE)
-Accuracy for the _temperature_ features
+
+Single step accuracy for the _temperature_ feature
 
 ![MAE Results](results/results_MAE.png)
 
-
 ### LSTM Model
+
 Single step predictions for the LSTM model
 
 ![LSTM Model](results/results_lstm.png)
 
+### Mean Absolute Error (MAE)
+
+Multi step accuracy for the _temperature_ feature (LSTM)
+
+![Multi-step LSTM Results](results/results_multi_lstm.png)
+
 ### Multi-Step Forecasting
-Multistep accuracy averaged over all features
+
+Multi step accuracy averaged over all features
 
 ![Multi-Step Forecasting](results/results_multi.png)
