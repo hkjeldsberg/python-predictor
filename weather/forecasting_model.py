@@ -1,19 +1,18 @@
 import argparse
 import json
-
-import numpy as np
-import tensorflow as tf
-import pandas as pd
-import seaborn as sns
-from IPython import embed
-from matplotlib import pyplot as plt
 from os import path
 
-from baseline import Baseline
-from residual_wrapper import ResidualWrapper
-from multistep_baseline import MultiStepLastBaseline
-from repeat_baseline import RepeatBaseline
-from feedback import Feedback
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import tensorflow as tf
+from matplotlib import pyplot as plt
+
+from custom_models.baseline import Baseline
+from custom_models.feedback import Feedback
+from custom_models.multistep_baseline import MultiStepLastBaseline
+from custom_models.repeat_baseline import RepeatBaseline
+from custom_models.residual_wrapper import ResidualWrapper
 from window_generator import WindowGenerator
 
 sns.set_theme()
@@ -426,10 +425,10 @@ def main(config, window_type, model_name):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train a forecasting model.")
-    parser.add_argument('--window_type', type=str, required=True,
+    parser.add_argument('-t', '--window-type', type=str, required=True,
                         choices=['single', 'multi'],
                         help='Type of window to use for training the model.')
-    parser.add_argument('--model_name', type=str, required=True,
+    parser.add_argument('-n', '--model-name', type=str, required=True,
                         help='Name of the model to train.')
 
     args = parser.parse_args()
