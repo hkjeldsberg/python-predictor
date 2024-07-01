@@ -1,6 +1,6 @@
 import numpy as np
-from matplotlib import pyplot as plt
 import tensorflow as tf
+from matplotlib import pyplot as plt
 
 
 class WindowGenerator:
@@ -72,10 +72,28 @@ class WindowGenerator:
 
         return inputs, labels
 
-    def plot(self, model=None, plot_col='T (degC)', inputs=None, labels=None):
-        inputs,labels=self.example
+    def unnormalize(self, normalized_data):
+        return (normalized_data * self.train_std) + self.train_mean
+
+    def unnormalize_vector(self, normalized_data):
+        return (normalized_data * self.train_std.values) + self.train_mean.values
+
+    def plot(self, model=None, train_mean=None, train_std=None, plot_col='T (degC)'):
+        inputs, labels = self.example
+        if model is not None:
+            predictions = model(inputs)
         plot_col_index = self.column_indices[plot_col]
         n = len(inputs.shape)
+
+        self.train_std = train_std.iloc[plot_col_index]
+        self.train_mean = train_mean.iloc[plot_col_index]
+
+        # Unormalize values
+        # TODO: Adjust for multiple features
+        inputs = self.unnormalize(inputs)
+        labels = self.unnormalize(labels)
+        if model is not None:
+            predictions = self.unnormalize(predictions)
 
         for i in range(n):
             plt.subplot(n, 1, i + 1)
@@ -92,7 +110,6 @@ class WindowGenerator:
                         edgecolors="black", label="Labels", color="#2ca02c", s=64)
 
             if model is not None:
-                predictions = model(inputs)
                 plt.scatter(self.label_indices, predictions[i, :, label_col_index],
                             marker="X", label="Predictions", edgecolor="black", color="#ff7f0e", s=64)
 
@@ -100,7 +117,7 @@ class WindowGenerator:
                 plt.legend()
 
             plt.xlabel("Time [h]")
-            plt.ylabel(f"{plot_col} [normalized]")
+            plt.ylabel(f"{plot_col}")
 
         plt.show()
 

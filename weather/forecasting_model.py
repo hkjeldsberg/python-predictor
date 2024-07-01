@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import tensorflow as tf
+from IPython import embed
 from matplotlib import pyplot as plt
 
 from custom_models.baseline import Baseline
@@ -118,12 +119,12 @@ class Forecasting:
         test_df = self.df[int(n * 0.9):]
 
         # Normalization
-        train_mean = train_df.mean()
-        train_std = train_df.std()
+        self.train_mean = train_df.mean()
+        self.train_std = train_df.std()
 
-        self.train_df = (train_df - train_mean) / train_std
-        self.val_df = (val_df - train_mean) / train_std
-        self.test_df = (test_df - train_mean) / train_std
+        self.train_df = (train_df - self.train_mean) / self.train_std
+        self.val_df = (val_df - self.train_mean) / self.train_std
+        self.test_df = (test_df - self.train_mean) / self.train_std
 
     def create_wide_window(self):
         self.wide_window = WindowGenerator(
@@ -345,7 +346,7 @@ class Forecasting:
         self.val_performance[name] = model.evaluate(window.val, return_dict=True)
         self.performance[name] = model.evaluate(window.test, verbose=0, return_dict=True)
         if plot:
-            window.plot(model)
+            window.plot(model, self.train_mean, self.train_std)
 
     def train(self, model, window, name):
         history = self.compile_and_fit(model, window)

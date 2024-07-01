@@ -17,7 +17,7 @@ class Feedback(tf.keras.Model):
         predictions = self.dense(x)
         return predictions, state
 
-    def call(self, inputs,  training=None):
+    def call(self, inputs, training=None):
         predictions = []
         prediction, state = self.warmup(inputs)
         predictions.append(prediction)
